@@ -1,91 +1,88 @@
-var express = require('express');
-var fs      = require('fs');
-var request = require('request');
-var cheerio = require('cheerio');
-var app     = express();
+var request = require("request");
+var cheerio = require("cheerio");
+var fs = require('fs');
 
-var nbPage;
-var onVaCompterEnsemble = 0;
-//setInterval(function() {
-        do{
+var storage;
+var contents = fs.readFileSync("./liste_restaurants_michelin.json");
+var lines = String(contents).split(/\n/);
 
-            onVaCompterEnsemble += 1;
+fs.readFile('liste_restaurants_michelin.json', function (err, data) {
+    if (data) {
+        //console.log("Read JSON file: " + data);
+        data = data.toString().trim();
+        data = JSON.parse(JSON.stringify(data.toString().trim()));
+        storage = JSON.parse(data);
+        console.log(storage);
+    }});
 
-            app.get('/scrape', function(req, res){
-                // Let's scrape Anchorman 2
-                //https://www.lafourchette.com/tous-les-restaurants?page=
-                const url = "https://www.lafourchette.com/restaurant+paris#sort=QUALITY_DESC&page=" + onVaCompterEnsemble;
+var id_lafourchette = [];
+var deal_restaurant = [];
 
-                const options = {
-                    url: "https://www.lafourchette.com/restaurant+paris#sort=QUALITY_DESC&page=" + onVaCompterEnsemble,
-                    headers: {
-                        'User-Agent': '\\ "Mozilla/5.0 (Windows NT 10.0; WOW64) ' +
-                        'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.186 Safari/537.36\\"',
-                        Cookie: '\\"datadome=AHrlqAAAAAMAwVzDpbiWd78ALtotww==\\"'
-                    }
+function get_ID_restaurant(restaurant){
+    request({method: 'GET',url:'https://m.lafourchette.com/api/restaurant-prediction?name=' + encodeURIComponent(restaurant.name)},function(error, response, html){
+        if (!error){
+            var resultat = JSON.parse(html);
+            resultat.forEach(function(restaurant2){
+                if (restaurant.zipcode == restaurant2.address.postal_code && restaurant.name == restaurant2.name) {
+                    restaurant.id = restaurant2.id;
+                    id_lafourchette.push(restaurant);
                 }
-                /*
-                function restaurants(nbPage) {
-                    const url = "https://www.lafourchette.com/restaurant+paris#sort=QUALITY_DESC&page=10" + nbPage;
-
-                    const options = {
-                        url: "https://www.lafourchette.com/restaurant+paris#sort=QUALITY_DESC&page=10" + nbPage,
-                        headers: {
-                            'User-Agent': '\\ "Mozilla/5.0 (Windows NT 10.0; WOW64) ' +
-                            'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.186 Safari/537.36\\"',
-                            Cookie: '\\"datadome=AHrlqAAAAAMAwVzDpbiWd78ALtotww==\\"'
-                        }
-                    }
-                };
-        */
-                request(options, function(error, response, html) {
-                    if (!error) {
-
-                        var $ = cheerio.load(html);
-
-                        var json = {name: ""};
-
-                        $(".list-unstyled").find(".resultItem").find(".resultItem-name").each(function (index, element) {
-
-                            var name = $(element);
-                            var a = $(element);
-                            console.log("coucou");
-                            console.log(a.text().trim());
-                            name = name.text().trim();
-                            json.name = name;
-                        });
-
-                        $(".list-unstyled").find(".resultItem").find(".resultItem-address").filter(function(){
-                            var data = $(this);
-                            address = data.text().trim();
-                            console.log(data.text().trim());
-                            json.address = address;
-                        });
-
-                        $(".pagination").find("ul").find("li:nth-last-child(2)").filter(function(){
-                            var data = $(this);
-                            nbPage = data.text().trim();
-                            console.log(data.text().trim());
-                            json.nbPage = nbPage;
-                        });
-
-                        fs.writeFile('output.json', JSON.stringify(json, null, 4), function(err){
-                            console.log('File successfully written! - Check your project directory for the output.json file');
-                        });
-
-                        res.send('Check your console!')
-
-                    } else {
-                        console.log("Error");
-                        console.log(response.statusCode);
-                    }
-                });
             })
+            var json = JSON.stringify(id_lafourchette);
+            fs.writeFile('idrestaurant.json', json, 'utf8');
+        }
+    })
+}
+for(var i=0; i<storage.length; i++)
+{
+    get_ID_restaurant(storage[i]);
+}
 
-        }while(onVaCompterEnsemble < nbPage);
-//}, 100);
+/*
+var idrestau_lafourchette = JSON.parse(fs.readFileSync("D:/Documents/ESILV/4A/WebApplication/top-chef/modules/lafourchette/idrestaurant.json", "utf8"));
 
+for (var i = 0; i < idrestau_lafourchette.length; i++) {
+    get_deal_restaurant(idrestau_lafourchette[i]);
+}
 
-app.listen('8081')
-console.log('Magic happens on port 8081');
-exports = module.exports = app;
+function get_deal_restaurant(restaurant) {
+    request({method: 'GET',url:'https://m.lafourchette.com/api/restaurant/' + restaurant.id + '/sale-type'},function(error, response, html){
+        if (!error){
+            var resultat = JSON.parse(html);
+
+            restaurant.deal = [];
+            resultat.forEach(function(deal){
+
+                if (deal.title != 'Simple booking' ) {
+                    if ('exclusions' in deal) {
+                        restaurant.deal.push({
+                            title: deal.title,
+                            exclusions: deal.exclusions ,
+                            is_menu: deal.is_menu,
+                            is_special_offer: deal.is_special_offer,
+                            discount_amount: deal.discount_amount
+
+                        });
+                    } else {
+                        restaurant.deal.push({
+                            title: deal.title,
+                            is_menu: deal.is_menu,
+                            is_special_offer: deal.is_special_offer,
+                            discount_amount: deal.discount_amount
+                        });
+                    }
+                } else {
+                    restaurant.deal.push({
+                        title: deal.title,
+                        is_menu: deal.is_menu,
+                        is_special_offer: deal.is_special_offer
+                    });
+                }
+            })
+            deal_restaurant.push(restaurant)
+            var json = JSON.stringify(deal_restaurant);
+            fs.writeFile('dealrestaurant.json', json, 'utf8');
+        }
+    })
+}
+*/

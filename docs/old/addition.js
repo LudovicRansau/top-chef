@@ -70,7 +70,7 @@ for(var i=0; i<15; i++){
     scrappeRestaurants(json["liste restaurants"][i], i, function(){
         //on incrémente nbexecutionsTermine à chaque fois que rechercherNbLikeV2 a terminé
         json["liste restaurants"].push(restaurant);
-        fs.writeFile('liste.json', JSON.stringify(json["liste restaurants"], null, 4), function(err){
+        fs.writeFile('addition.json', JSON.stringify(json["liste restaurants"], null, 4), function(err){
             console.log('File successfully written! - Check your project directory for the output.json file');
         });
         nbexecutionsTermine++;
